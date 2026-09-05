@@ -120,7 +120,18 @@ class OpenClawAdapter(HarnessAdapter):
         if hardened(req):
             argv.append("--local-model-lean")
 
-        proc = run_cmd(argv, cwd=req.workspace, timeout=req.timeout_sec + 30)
+        # Small local models can be slow; keep a bounded timeout so campaigns finish.
+        timeout = max(req.timeout_sec, 180 if use_ollama else req.timeout_sec)
+        # Replace --timeout value
+        if "--timeout" in argv:
+            i = argv.index("--timeout")
+            argv[i + 1] = str(timeout)
+
+        env = None
+        if use_ollama:
+            env = {"OLLAMA_API_KEY": "ollama-local"}
+
+        proc = run_cmd(argv, cwd=req.workspace, env=env, timeout=timeout + 60)
         text = combine_output(proc)
         traj.write_text(text, encoding="utf-8")
 

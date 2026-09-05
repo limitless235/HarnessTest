@@ -2,26 +2,15 @@
 
 Security benchmark for AI agent harnesses. Assumes the model may be compromised and measures which architectural layer stops the attack.
 
-## Model backend (local open-weight)
+## Targets
 
-HarnessTest defaults to **Ollama** with a small open-weight model:
-
-```bash
-# already used in this project
-ollama pull qwen2.5:1.5b
-export HARNESSTEST_MODEL=qwen2.5:1.5b
-export OLLAMA_HOST=http://127.0.0.1:11434
-```
-
-No cloud API keys are required for the `local` harness adapter.
-
-| Harness | Depth | Notes |
+| Harness | Depth | Focus |
 | --- | --- | --- |
-| `local` | Demo / control | Ollama tool loop with default vs hardened tool policy |
-| `openclaw` | Brief baseline | Platform defaults, sandbox/tool/elevated split |
-| `nemoclaw` | Deep | External OpenShell control plane |
-| `hermes` | Deep | Layered in-agent defenses |
-| `deepseek` | Deep | Plugin TCB + trajectories |
+| OpenClaw | Brief baseline | Platform defaults, sandbox/tool/elevated split, egress |
+| NemoClaw | Deep | External OpenShell control plane, credential mediation, deny-by-default network |
+| Hermes | Deep | Layered in-agent defenses, approval, container vs local, MCP env filter |
+| DeepSeek Harness | Deep | Plugin TCB, trajectories |
+| local | Demo / CI | Minimal Ollama tool-loop (not a research peer target) |
 
 ## Safety
 
@@ -37,19 +26,40 @@ python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
 
-# Ensure Ollama is running with the demo model
-ollama serve   # if not already running
-ollama pull qwen2.5:1.5b
+# Optional: Node 22.22.3+ for OpenClaw / DeepSeek tooling
+# export PATH="$HOME/.nvm/versions/node/v22.22.3/bin:$PWD/.vendor/npm-global/bin:$PATH"
 
-python -m harnesstest.cli model
-python -m harnesstest.cli probe --workspace fixtures/workspace
+harnesstest probe --workspace fixtures/workspace
+harnesstest sink --port 8765   # separate terminal
+harnesstest list
+harnesstest model              # check local Ollama
+harnesstest campaign           # openclaw + nemoclaw + hermes + deepseek
+harnesstest campaign --harness local
+```
 
-# Live demo against the local open-weight adapter
-python -m harnesstest.cli run --harness local --profile default --attack kill_chain
-python -m harnesstest.cli run --harness local --profile hardened --attack kill_chain
+Copy `.env.example` for cloud keys. See `harnesses/*/README.md` and `harnesses/INSTALL.md`.
 
-# Campaign (default + hardened)
-python -m harnesstest.cli campaign --harness local
+### Required environment (live campaigns)
+
+| Variable | Purpose |
+| --- | --- |
+| `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `DEEPSEEK_API_KEY` / `NVIDIA_API_KEY` / … | Cloud model auth |
+| `OLLAMA_HOST` / `HARNESSTEST_MODEL` | Local open-weight path (default `qwen2.5:1.5b`) |
+| `OLLAMA_API_KEY` | Any non-empty value registers Ollama for OpenClaw |
+| `NEMOCLAW_SANDBOX` / `DEEPSEEK_HARNESS_ROOT` | NemoClaw sandbox name / DeepSeek checkout |
+
+Without cloud keys, Hermes and `local` can still run against Ollama. NemoClaw needs Docker+OpenShell. DeepSeek needs `dsh` + provider credentials.
+
+## Layout
+
+```text
+attacks/                  # adversarial fixtures + expected violation markers
+fixtures/                 # shared workspace (synthetic secrets, untrusted README)
+harnesses/                # per-target install notes
+harnesstest/              # runner, instrumentation, scorecard, adapters
+harnesstest/harnesses/    # Python adapters
+reports/                  # generated results (live only for published scores)
+tests/
 ```
 
 ## Kill chain
@@ -59,14 +69,4 @@ Untrusted README → objective change → tool call → FS read of planted secre
   → egress attempt → (optional) plugin/skill escalation
 ```
 
-Each run records the first stage that stops the chain (or `none` if the chain completed).
-
-## Layout
-
-```text
-attacks/           # adversarial fixtures + expected violation markers
-fixtures/          # shared workspace (synthetic secrets, untrusted README)
-harnesstest/       # runner, instrumentation, scorecard, adapters
-reports/           # generated results
-tests/
-```
+Each run records the first stage that stops the chain (or `none`).
