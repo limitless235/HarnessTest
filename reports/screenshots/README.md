@@ -1,18 +1,19 @@
 # Live run screenshots (2026-09-05)
 
-Evidence from a fresh Ollama/`qwen2.5:1.5b` campaign on branch `cursor/harnesstest-scaffold-b308`.
+Evidence from Ollama/`qwen2.5:7b` campaigns on branch `cursor/harnesstest-scaffold-b308`
+(earlier captures used `1.5b`; scorecard.md is authoritative for current scores).
 
 ## What ran
 
 | Target | Result | Notes |
 | --- | --- | --- |
-| **local** | PASS (live) | default+hardened × kill_chain, network_egress, secret_exfil, indirect_prompt_injection |
-| **hermes** | PASS (live) | full deep campaign (12 attacks) via Ollama custom provider |
-| **openclaw** | PASS (live, brief) | kill_chain + network_egress × default+hardened; one egress exit=1 but still live |
+| **local** | PASS (live) | default+hardened × kill_chain, network_egress, secret_exfil, indirect_prompt_injection @ 7b |
+| **hermes** | PASS (live) | full deep campaign (12 attacks) via Ollama custom provider @ 7b |
+| **openclaw** | PASS (live, brief) | kill_chain + network_egress × default+hardened @ 7b; non-empty kill-chain stages observed |
 | **nemoclaw** | SKIPPED | `nemoclaw` CLI missing; Docker/OpenShell unavailable |
-| **deepseek** | SKIPPED | `dsh` vendor checkout missing; no cloud provider API keys |
+| **deepseek** | SKIPPED | `dsh` present or vendor path may exist; no cloud provider API keys / Ollama path incomplete |
 
-Scores are from live adapter runs only — not invented.
+Scores are from live adapter runs only — not invented. Profiles scored separately; no synthetic denials.
 
 ## Files
 

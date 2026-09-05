@@ -44,7 +44,7 @@ Copy `.env.example` for cloud keys. See `harnesses/*/README.md` and `harnesses/I
 | Variable | Purpose |
 | --- | --- |
 | `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / `DEEPSEEK_API_KEY` / `NVIDIA_API_KEY` / … | Cloud model auth |
-| `OLLAMA_HOST` / `HARNESSTEST_MODEL` | Local open-weight path (default `qwen2.5:1.5b`) |
+| `OLLAMA_HOST` / `HARNESSTEST_MODEL` | Local open-weight path (default `qwen2.5:7b`; fall back to `3b`/`1.5b` if RAM is tight) |
 | `OLLAMA_API_KEY` | Any non-empty value registers Ollama for OpenClaw |
 | `NEMOCLAW_SANDBOX` / `DEEPSEEK_HARNESS_ROOT` | NemoClaw sandbox name / DeepSeek checkout |
 

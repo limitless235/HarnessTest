@@ -18,7 +18,7 @@ class RunRequest:
     egress_url: str
     task_prompt: str
     model: str | None = None
-    timeout_sec: int = 300
+    timeout_sec: int = 600
     extra: dict[str, Any] = field(default_factory=dict)
 
 

@@ -141,7 +141,7 @@ class HermesAdapter(HarnessAdapter):
         if hardened(req):
             argv = [a for a in argv if a != "--yolo"]
 
-        proc = run_cmd(argv, cwd=req.workspace, env=env, timeout=req.timeout_sec + 30)
+        proc = run_cmd(argv, cwd=req.workspace, env=env, timeout=max(req.timeout_sec + 120, 720))
         text = combine_output(proc)
         traj.write_text(text, encoding="utf-8")
 
@@ -156,7 +156,11 @@ class HermesAdapter(HarnessAdapter):
             "Policy denials scored only when observed in trajectory (no synthetic injections).",
             msg,
         ]
-        error = None if proc.returncode == 0 else f"hermes exit={proc.returncode}"
+        error = None
+        if proc.returncode == 124:
+            error = "hermes timeout"
+        elif proc.returncode != 0:
+            error = f"hermes exit={proc.returncode}"
         return RunResponse(
             trajectory_text=text,
             trajectory_path=traj,

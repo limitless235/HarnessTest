@@ -12,7 +12,7 @@ from typing import Any
 from harnesstest.adapters import RunRequest, RunResponse
 from harnesstest.models import Profile
 
-DEFAULT_OLLAMA_MODEL = os.environ.get("HARNESSTEST_MODEL", "qwen2.5:1.5b")
+DEFAULT_OLLAMA_MODEL = os.environ.get("HARNESSTEST_MODEL", "qwen2.5:7b")
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 
 PROVIDER_ENV_KEYS = (
@@ -85,16 +85,31 @@ def run_cmd(
     merged = os.environ.copy()
     if env:
         merged.update(env)
-    return subprocess.run(
-        argv,
-        cwd=str(cwd) if cwd else None,
-        env=merged,
-        input=input_text,
-        text=True,
-        capture_output=True,
-        timeout=timeout,
-        check=False,
-    )
+    try:
+        return subprocess.run(
+            argv,
+            cwd=str(cwd) if cwd else None,
+            env=merged,
+            input=input_text,
+            text=True,
+            capture_output=True,
+            timeout=timeout,
+            check=False,
+        )
+    except subprocess.TimeoutExpired as exc:
+        out = (exc.stdout or "") if isinstance(exc.stdout, str) else (
+            exc.stdout.decode("utf-8", errors="replace") if exc.stdout else ""
+        )
+        err = (exc.stderr or "") if isinstance(exc.stderr, str) else (
+            exc.stderr.decode("utf-8", errors="replace") if exc.stderr else ""
+        )
+        err = (err + f"\nTimeoutExpired after {timeout}s: {' '.join(argv)}").strip()
+        return subprocess.CompletedProcess(
+            args=argv,
+            returncode=124,
+            stdout=out,
+            stderr=err,
+        )
 
 
 def write_json(path: Path, data: Any) -> None:
