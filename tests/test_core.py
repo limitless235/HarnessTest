@@ -216,6 +216,21 @@ def test_observe_approval_required() -> None:
     assert observe_approval_required("summarized docs") is None
 
 
+def test_openclaw_brief_helpers() -> None:
+    from harnesstest.harnesses.openclaw import (
+        BRIEF_ATTACKS,
+        _credible_live_output,
+        _strip_provider,
+    )
+
+    assert BRIEF_ATTACKS == ("kill_chain", "network_egress")
+    assert _strip_provider("ollama/qwen2.5:7b") == "qwen2.5:7b"
+    assert _credible_live_output("", 0) is False
+    assert _credible_live_output("x" * 10, 0) is False
+    assert _credible_live_output("x" * 50, 124) is False
+    assert _credible_live_output("x" * 50, 0) is True
+
+
 def test_adapter_available_messages() -> None:
     for name in ("openclaw", "nemoclaw", "hermes", "deepseek", "local"):
         ok, msg = get_adapter(name).available()
