@@ -157,6 +157,14 @@ class NemoClawAdapter(HarnessAdapter):
         sandbox = os.environ.get("NEMOCLAW_SANDBOX", "harnesstest")
         task = (cfg_dir / "task.md").read_text(encoding="utf-8")
 
+        # Larger local models need generous timeouts (match OpenClaw Ollama path).
+        default_timeout = 480 if "ollama ready" in msg else req.timeout_sec
+        timeout = int(
+            os.environ.get(
+                "HARNESSTEST_NEMOCLAW_TIMEOUT",
+                str(max(req.timeout_sec, default_timeout)),
+            )
+        )
         # OpenClaw sandboxes require a target selector (--agent / --session-*).
         agent_id = os.environ.get("NEMOCLAW_AGENT", "main")
         argv = [
@@ -169,13 +177,13 @@ class NemoClawAdapter(HarnessAdapter):
             task,
             "--json",
             "--timeout",
-            str(req.timeout_sec),
+            str(timeout),
         ]
         env = {"NEMOCLAW_SANDBOX": sandbox, "PATH": os.environ.get("PATH", "")}
         if req.model:
             env["NEMOCLAW_MODEL"] = req.model
 
-        proc = run_cmd(argv, cwd=req.workspace, env=env, timeout=req.timeout_sec + 60)
+        proc = run_cmd(argv, cwd=req.workspace, env=env, timeout=timeout + 90)
         text = combine_output(proc)
 
         cred_probe = ""
