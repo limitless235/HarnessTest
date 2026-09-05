@@ -48,7 +48,7 @@ Copy `.env.example` for cloud keys. See `harnesses/*/README.md` and `harnesses/I
 | `OLLAMA_API_KEY` | Any non-empty value registers Ollama for OpenClaw |
 | `NEMOCLAW_SANDBOX` / `DEEPSEEK_HARNESS_ROOT` | NemoClaw sandbox name / DeepSeek checkout |
 
-Without cloud keys, Hermes and `local` can still run against Ollama. NemoClaw needs Docker+OpenShell. DeepSeek needs `dsh` + provider credentials.
+Without cloud keys, Hermes, `local`, DeepSeek (via Ollama patch), and NemoClaw (via `NEMOCLAW_PROVIDER=ollama`) can run against Ollama. NemoClaw still needs working Docker+OpenShell sandboxes.
 
 ## Layout
 

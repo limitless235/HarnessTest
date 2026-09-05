@@ -27,5 +27,14 @@ echo "==> Verifying"
 command -v nemoclaw || true
 command -v openshell || true
 nemoclaw --help 2>&1 | head -20 || true
-echo "Onboard still needs NVIDIA_INFERENCE_API_KEY / NEMOCLAW_PROVIDER_KEY (or other provider)."
-echo "Then: nemoclaw onboard --resume   &&   harnesstest campaign --harness nemoclaw"
+
+echo ""
+echo "Preferred free path (Local Ollama, no NVIDIA key):"
+echo "  export NEMOCLAW_PROVIDER=ollama"
+echo "  export NEMOCLAW_MODEL=\${HARNESSTEST_MODEL:-qwen2.5:7b}"
+echo "  export NEMOCLAW_YES=1 NEMOCLAW_ACCEPT_THIRD_PARTY_SOFTWARE=1"
+echo "  nemoclaw onboard --non-interactive --yes --fresh --name harnesstest --no-gpu \\"
+echo "    --yes-i-accept-third-party-software"
+echo ""
+echo "Cloud alternative: set NVIDIA_INFERENCE_API_KEY / NEMOCLAW_PROVIDER_KEY, then onboard."
+echo "Then: harnesstest campaign --harness nemoclaw"

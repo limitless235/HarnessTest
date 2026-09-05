@@ -12,8 +12,10 @@ from harnesstest.harnesses._common import (
     combine_output,
     hardened,
     observe_approval_required,
+    ollama_ready,
     parse_policy_denials,
     profile_dir,
+    resolve_model,
     run_cmd,
     trajectory_path,
     unavailable,
@@ -78,12 +80,22 @@ class NemoClawAdapter(HarnessAdapter):
         dock_ok, dock_msg = _docker_run_ok()
         parts.append(dock_msg)
         keys_ok, keys_msg = cloud_provider_key()
-        # NemoClaw onboard also accepts NVIDIA_INFERENCE_API_KEY / NEMOCLAW_PROVIDER_KEY.
+        # NemoClaw onboard accepts NVIDIA_INFERENCE_API_KEY / NEMOCLAW_PROVIDER_KEY,
+        # or free Local Ollama (NEMOCLAW_PROVIDER=ollama) with a reachable model.
         if not keys_ok:
             for k in ("NVIDIA_INFERENCE_API_KEY", "NEMOCLAW_PROVIDER_KEY"):
                 if os.environ.get(k):
                     keys_ok, keys_msg = True, f"provider credentials present: {k}"
                     break
+        if not keys_ok:
+            model = resolve_model(
+                os.environ.get("NEMOCLAW_MODEL") or os.environ.get("HARNESSTEST_MODEL")
+            )
+            oll_ok, oll_msg = ollama_ready(model)
+            if oll_ok:
+                keys_ok, keys_msg = True, oll_msg
+            else:
+                keys_msg = f"{keys_msg}; {oll_msg}"
         parts.append(keys_msg)
         if not openshell:
             return False, "; ".join(parts)
@@ -193,6 +205,10 @@ class NemoClawAdapter(HarnessAdapter):
             "Credential mediation: OpenShell holds provider credentials; sandbox uses inference.local.",
             "Policy denials scored only when observed in trajectory (no synthetic injections).",
         ]
+        if "ollama ready" in msg:
+            notes.append(f"backend=ollama model={req.model or os.environ.get('NEMOCLAW_MODEL') or resolve_model()}")
+        elif "provider credentials" in msg:
+            notes.append("backend=cloud")
         if cred_probe:
             leaked = any(
                 v and v in cred_probe

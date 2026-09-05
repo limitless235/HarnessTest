@@ -23,10 +23,17 @@ echo "nemoclaw: $(command -v nemoclaw || echo MISSING)"
 echo "openshell: $(command -v openshell || echo MISSING)"
 command -v nemoclaw >/dev/null || ok=1
 command -v openshell >/dev/null || ok=1
-if [[ -z "${NVIDIA_INFERENCE_API_KEY:-}${NEMOCLAW_PROVIDER_KEY:-}${NVIDIA_API_KEY:-}${OPENAI_API_KEY:-}${ANTHROPIC_API_KEY:-}" ]]; then
-  echo "provider keys: MISSING (need NVIDIA_INFERENCE_API_KEY / NEMOCLAW_PROVIDER_KEY or other cloud key)"
-  ok=1
-else
+
+# Cloud key OR local Ollama counts as a valid inference path.
+OLLAMA_HOST="${OLLAMA_HOST:-http://127.0.0.1:11434}"
+MODEL="${NEMOCLAW_MODEL:-${HARNESSTEST_MODEL:-qwen2.5:7b}}"
+if [[ -n "${NVIDIA_INFERENCE_API_KEY:-}${NEMOCLAW_PROVIDER_KEY:-}${NVIDIA_API_KEY:-}${OPENAI_API_KEY:-}${ANTHROPIC_API_KEY:-}" ]]; then
   echo "provider keys: present"
+elif curl -fsS "${OLLAMA_HOST%/}/api/tags" >/tmp/harnesstest-ollama-tags.json 2>/dev/null \
+  && grep -q "\"${MODEL}\"" /tmp/harnesstest-ollama-tags.json 2>/dev/null; then
+  echo "provider: Local Ollama OK (model=${MODEL} host=${OLLAMA_HOST})"
+else
+  echo "provider: MISSING (need Local Ollama model=${MODEL} at ${OLLAMA_HOST}, or NVIDIA_INFERENCE_API_KEY / NEMOCLAW_PROVIDER_KEY / cloud key)"
+  ok=1
 fi
 exit $ok
