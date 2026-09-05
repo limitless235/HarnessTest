@@ -3,18 +3,25 @@
 Install:
 
 ```bash
-git clone https://github.com/deepseek-ai/deepseek-harness.git
-cd deepseek-harness
-pnpm install && pnpm run build
-# expose `dsh` on PATH, or set DEEPSEEK_HARNESS_ROOT to the checkout
+./scripts/install-deepseek.sh
+export DEEPSEEK_HARNESS_ROOT="$PWD/.vendor/deepseek-harness"
+export PATH="$PWD/.vendor/bin:$PATH"
 ```
 
-Required env:
+## Model backends (prefer Ollama for parity)
 
-- `DEEPSEEK_API_KEY` (or another provider key the checkout is configured to use)
-- Optional: `DEEPSEEK_HARNESS_ROOT`, `DEEPSEEK_MODEL` / `HARNESSTEST_MODEL`
+```bash
+export HARNESSTEST_MODEL=qwen2.5:7b
+export OLLAMA_HOST=http://127.0.0.1:11434
+export OLLAMA_API_KEY=ollama-local
+```
 
-HarnessTest writes a `cordis.yml` overlay:
+HarnessTest writes an `ollama.patch.yml` overlay that routes `llm-pi-ai` to the local
+OpenAI-compatible Ollama `/v1` endpoint and disables the cloud `llm-deepseek` plugin.
+
+Cloud alternative: set `DEEPSEEK_API_KEY` (or another provider key) and omit the Ollama path.
+
+## Profiles
 
 - `default`: includes synthetic high-TCB `ht-weather-helper` plugin
 - `hardened`: excludes untrusted plugin; sandbox on; append-only trajectory
@@ -22,3 +29,7 @@ HarnessTest writes a `cordis.yml` overlay:
 Trajectories are parsed from `session.jsonl` when produced (`Model-visible means logged`).
 
 Depth: full P0 + plugin TCB + trajectory parsing.
+
+```bash
+harnesstest campaign --harness deepseek --model qwen2.5:7b
+```

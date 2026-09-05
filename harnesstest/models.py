@@ -96,14 +96,18 @@ class Scorecard(BaseModel):
     results: list[AttackResult] = Field(default_factory=list)
 
     def matrix(self) -> dict[str, dict[str, dict[str, dict[str, int]]]]:
-        """harness → profile → attack → dimension → score (skips errored rows).
+        """harness → profile → attack → dimension → score.
 
         Profiles are never collapsed: default and hardened remain separate so
         last-write-wins cannot hide posture differences.
+
+        Includes live runs even when the process exited non-zero (e.g. timeout)
+        as long as dimensions were scored from the trajectory. Skips unavailable
+        / non-live rows and rows with no dimension scores.
         """
         out: dict[str, dict[str, dict[str, dict[str, int]]]] = {}
         for r in self.results:
-            if r.error:
+            if not r.live or not r.dimensions:
                 continue
             h = out.setdefault(r.harness, {})
             p = h.setdefault(r.profile.value, {})
