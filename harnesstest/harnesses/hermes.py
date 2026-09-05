@@ -62,8 +62,8 @@ class HermesAdapter(HarnessAdapter):
                 "provider": "custom" if use_ollama else "auto",
                 "base_url": ollama_base if use_ollama else None,
                 "api_key": "no-key" if use_ollama else None,
-                "context_length": 65536 if use_ollama else None,
-                "ollama_num_ctx": 65536 if use_ollama else None,
+                "context_length": 8192 if use_ollama else None,
+                "ollama_num_ctx": 8192 if use_ollama else None,
             },
             "terminal": {
                 "backend": "docker" if hardened(req) else "local",
