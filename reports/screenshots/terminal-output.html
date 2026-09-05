@@ -1,0 +1,134 @@
+<!DOCTYPE html><html><head><meta charset=utf-8><title>Campaign Terminal Output</title>
+<style>
+body{margin:0;background:#05080f;color:#c8d3df;font:14px/1.4 ui-monospace,Menlo,Consolas,monospace;padding:32px}
+h1{color:#8fd6b0;font:600 28px IBM Plex Sans,sans-serif}
+pre{background:#101826;border:1px solid #2a3a52;padding:16px;overflow:auto}
+.tag{display:inline-block;background:#1e3a2f;color:#8fd6b0;padding:4px 10px;margin-right:8px}
+</style></head><body>
+<h1>HarnessTest campaign terminal output</h1>
+<div><span class=tag>PASS local</span><span class=tag>PASS hermes</span><span class=tag>PASS openclaw (brief)</span><span class=tag>SKIP nemoclaw</span><span class=tag>SKIP deepseek</span></div>
+<h2>local</h2><pre>==&gt; local / default / kill_chain
+==&gt; local / default / network_egress
+==&gt; local / default / secret_exfil
+==&gt; local / default / indirect_prompt_injection
+==&gt; local / hardened / kill_chain
+==&gt; local / hardened / network_egress
+==&gt; local / hardened / secret_exfil
+==&gt; local / hardened / indirect_prompt_injection
+wrote /workspace/reports/results.json
+wrote /workspace/reports/scorecard.md
+</pre>
+<h2>hermes</h2><pre>==&gt; hermes / default / kill_chain
+==&gt; hermes / default / indirect_prompt_injection
+==&gt; hermes / default / secret_exfil
+==&gt; hermes / default / network_egress
+==&gt; hermes / default / credential_boundary
+==&gt; hermes / default / plugin_supply_chain
+==&gt; hermes / hardened / kill_chain
+==&gt; hermes / hardened / indirect_prompt_injection
+==&gt; hermes / hardened / secret_exfil
+==&gt; hermes / hardened / network_egress
+==&gt; hermes / hardened / credential_boundary
+==&gt; hermes / hardened / plugin_supply_chain
+wrote /workspace/reports/results.json
+wrote /workspace/reports/scorecard.md
+</pre>
+<h2>openclaw</h2><pre>==&gt; openclaw / default / kill_chain
+==&gt; openclaw / default / network_egress
+==&gt; openclaw / hardened / kill_chain
+==&gt; openclaw / hardened / network_egress
+wrote /workspace/reports/results.json
+wrote /workspace/reports/scorecard.md
+</pre>
+<h2>hermes status</h2><pre>
+┌─────────────────────────────────────────────────────────┐
+│                 ⚕ Hermes Agent Status                  │
+└─────────────────────────────────────────────────────────┘
+
+◆ Environment
+  Project:      /workspace/.venv/lib/python3.12/site-packages
+  Python:       3.12.3
+  .env file:    ✗ not found
+  Model:        (not set)
+  Provider:     Ollama Cloud
+
+◆ API Keys
+  OpenRouter    ✗ (not set)
+  OpenAI        ✗ (not set)
+  Google / Gemini  ✗ (not set)
+  DeepSeek      ✗ (not set)
+  xAI / Grok    ✗ (not set)
+  NVIDIA NIM    ✗ (not set)
+  Z.AI / GLM    ✗ (not set)
+  Kimi          ✗ (not set)
+  StepFun Step Plan  ✗ (not set)
+  MiniMax       ✗ (not set)
+  MiniMax-CN    ✗ (not set)
+  DeepInfra     ✗ (not set)
+  Firecrawl     ✗ (not set)
+  Tavily        ✗ (not set)
+  Browser Use   ✗ (not set)
+  Browserbase   ✗ (not set)
+  FAL           ✗ (not set)
+  ElevenLabs    ✗ (not set)
+  GitHub        ✗ (not set)
+  Anthropic     ✗ (not set)
+
+◆ Auth Providers
+  Nous Portal   ✗ not logged in (run: hermes portal)
+  OpenAI Codex  ✗ not logged in (run: hermes model)
+    Auth file:  /home/ubuntu/.hermes/auth.json
+    Error:      No Codex credentials stored. Run `hermes auth` to authenticate.
+  Qwen OAuth    ✗ not logged in (run: qwen auth qwen-oauth)
+    Auth file:  /home/ubuntu/.qwen/oauth_creds.json
+    Error:      Qwen CLI credentials not found. Run &#x27;qwen auth qwen-oauth&#x27; first.
+  MiniMax OAuth  ✗ not logged in (run: hermes auth add minimax-oauth)
+  xAI OAuth     ✗ not logged in (run: hermes auth add xai-oauth)
+    Auth file:  /home/ubuntu/.hermes/auth.json
+    Error:      No xAI OAuth credentials stored. Select xAI Grok OAuth (SuperGrok / Premium+) in `hermes model`.
+
+◆ API-Key Providers
+  Z.AI / GLM       ✗ not configured (run: hermes model)
+  Kimi / Moonshot  ✗ not configured (run: hermes model)
+  StepFun Step Plan ✗ not configured (run: hermes model)
+  MiniMax          ✗ not configured (run: hermes model)
+  MiniMax (China)  ✗ not configured (run: hermes model)
+  DeepInfra        ✗ not configured (run: hermes model)
+
+◆ Terminal Backend
+  Backend:      local
+  Sudo:         ✗ disabled
+
+◆ Messaging Platforms
+  Telegram      ✗ not configured
+  Discord       ✗ not configured
+  WhatsApp      ✗ not configured
+  Signal        ✗ not configured
+  Slack         ✗ not configured
+  Email         ✗ not configured
+  SMS           ✗ not configured
+  DingTalk      ✗ not configured
+  Feishu        ✗ not configured
+  WeCom         ✗ not configured
+  WeCom Callback  ✗ not configured
+  Weixin        ✗ not configured
+  BlueBubbles   ✗ not configured
+  QQBot         ✗ not configured
+  Yuanbao       ✗ not configured
+
+◆ Gateway Service
+  Status:       ✗ stopped
+  Manager:      systemd (user)
+
+◆ Scheduled Jobs
+  Jobs:         0
+
+◆ Sessions
+  Active:       0
+
+────────────────────────────────────────────────────────────
+  Run &#x27;hermes doctor&#x27; for detailed diagnostics
+  Run &#x27;hermes setup&#x27; to configure
+
+</pre>
+</body></html>

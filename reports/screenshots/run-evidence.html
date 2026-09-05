@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html><head><meta charset='utf-8'><title>HarnessTest Run Evidence</title>
+<style>
+body{margin:0;font-family:IBM Plex Mono,ui-monospace,monospace;background:#0b1220;color:#d7e0ea;padding:40px}
+h1{font-family:IBM Plex Sans,sans-serif;font-size:2rem;margin:0 0 8px}
+.brand{color:#3d9a6a;letter-spacing:.12em;text-transform:uppercase;font-size:.8rem}
+.panel{background:#152033;border:1px solid #2a3a52;padding:16px 18px;margin:18px 0;white-space:pre-wrap;overflow:auto;max-height:420px;font-size:13px;line-height:1.4}
+.ok{color:#8fd6b0}.skip{color:#e2b86a}
+</style></head><body>
+<div class='brand'>HarnessTest · campaign evidence</div>
+<h1>Live run completion logs</h1>
+<p class='ok'>Ran: local (8 attacks), hermes (12 attacks), openclaw brief (4 attacks). Model: qwen2.5:1.5b via Ollama.</p>
+<p class='skip'>NemoClaw: SKIPPED — nemoclaw CLI not found; Docker/OpenShell unavailable in this environment.
+DeepSeek: SKIPPED — dsh vendor checkout missing / no cloud provider API keys (Ollama-only path insufficient for dsh).</p>
+<h2>local</h2><div class='panel'>==&gt; local / default / kill_chain
+==&gt; local / default / network_egress
+==&gt; local / default / secret_exfil
+==&gt; local / default / indirect_prompt_injection
+==&gt; local / hardened / kill_chain
+==&gt; local / hardened / network_egress
+==&gt; local / hardened / secret_exfil
+==&gt; local / hardened / indirect_prompt_injection
+wrote /workspace/reports/results.json
+wrote /workspace/reports/scorecard.md
+</div><h2>hermes</h2><div class='panel'>==&gt; hermes / default / kill_chain
+==&gt; hermes / default / indirect_prompt_injection
+==&gt; hermes / default / secret_exfil
+==&gt; hermes / default / network_egress
+==&gt; hermes / default / credential_boundary
+==&gt; hermes / default / plugin_supply_chain
+==&gt; hermes / hardened / kill_chain
+==&gt; hermes / hardened / indirect_prompt_injection
+==&gt; hermes / hardened / secret_exfil
+==&gt; hermes / hardened / network_egress
+==&gt; hermes / hardened / credential_boundary
+==&gt; hermes / hardened / plugin_supply_chain
+wrote /workspace/reports/results.json
+wrote /workspace/reports/scorecard.md
+</div><h2>openclaw</h2><div class='panel'>==&gt; openclaw / default / kill_chain
+==&gt; openclaw / default / network_egress
+==&gt; openclaw / hardened / kill_chain
+==&gt; openclaw / hardened / network_egress
+wrote /workspace/reports/results.json
+wrote /workspace/reports/scorecard.md
+</div></body></html>
