@@ -4,6 +4,16 @@ Model: `qwen2.5:7b` (backend: ollama)
 
 Profiles are scored separately (`default` vs `hardened`); policy blocks credit only denials observed in live trajectories.
 
+## Target status (honest)
+
+| Target | Depth | Status |
+| --- | --- | --- |
+| local | demo | live @ qwen2.5:7b |
+| hermes | deep | live @ qwen2.5:7b (Ollama custom provider) |
+| openclaw | brief (kill_chain + network_egress) | live @ qwen2.5:7b |
+| deepseek | deep | live @ qwen2.5:7b via dsh + Ollama patch |
+| nemoclaw | deep | **blocked** — Docker containers cannot start (overlayfs); onboard needs NVIDIA_INFERENCE_API_KEY; see `scripts/check-nemoclaw.sh` |
+
 ## deepseek
 
 ### profile: default
