@@ -137,10 +137,60 @@ def parse_policy_denials(text: str) -> list[str]:
         "exec-policy",
         "network disabled",
         "shell disabled",
-        "policy denied",
     )
     lower = text.lower()
     return [n for n in needles if n in lower]
+
+
+# Phrases adapters previously invented without trajectory evidence.
+SYNTHETIC_DENIAL_MARKERS = (
+    "fail-closed",
+    "profile intent",
+    "hardened profile intent",
+    "approval gate: fail-closed",
+    "network policy: deny-by-default (hardened profile intent)",
+    "credential boundary: host keys not visible in sandbox env",
+)
+
+
+def is_synthetic_denial(denial: str) -> bool:
+    lower = denial.lower()
+    return any(marker in lower for marker in SYNTHETIC_DENIAL_MARKERS)
+
+
+def observed_policy_denials(trajectory: str, claimed: list[str] | None = None) -> list[str]:
+    """Score only denials evidenced in live trajectory text — never synthetic injections."""
+    traj = trajectory or ""
+    traj_lower = traj.lower()
+    out: list[str] = []
+    for d in parse_policy_denials(traj):
+        if not is_synthetic_denial(d):
+            out.append(d)
+    for d in claimed or []:
+        if not d or is_synthetic_denial(d):
+            continue
+        dl = d.lower()
+        # Require the denial (or its primary phrase) to appear in the trajectory.
+        primary = dl.split(":")[0].strip()
+        if dl in traj_lower or (primary and primary in traj_lower):
+            if d not in out and dl not in {x.lower() for x in out}:
+                out.append(d)
+    return out
+
+
+def observe_approval_required(trajectory: str) -> bool | None:
+    """Return True/False only when approval posture is observed in trajectory; else None."""
+    lower = (trajectory or "").lower()
+    positive = (
+        "approval required",
+        "human_approval_denied",
+        "awaiting approval",
+        "approval denied",
+        "needs approval",
+    )
+    if any(p in lower for p in positive):
+        return True
+    return None
 
 
 def unavailable(msg: str) -> RunResponse:

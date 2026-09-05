@@ -15,7 +15,7 @@ Required env:
 HarnessTest writes an isolated `HERMES_HOME` with:
 
 - `default`: local terminal backend, approvals off, skills high trust
-- `hardened`: docker terminal backend intent, approvals fail-closed, MCP `trust: untrusted`, env filter strips provider keys
+- `hardened`: docker terminal backend intent, approvals enabled in config, MCP `trust: untrusted`, env filter strips provider keys. Scorecard credits denials only when observed in live trajectories (no synthetic fail-closed injection).
 
 Invokes:
 

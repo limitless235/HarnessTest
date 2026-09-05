@@ -11,6 +11,7 @@ from harnesstest.harnesses._common import (
     cloud_provider_key,
     combine_output,
     hardened,
+    observe_approval_required,
     parse_policy_denials,
     profile_dir,
     run_cmd,
@@ -145,16 +146,13 @@ class NemoClawAdapter(HarnessAdapter):
 
         traj.write_text(text, encoding="utf-8")
         denials = parse_policy_denials(text)
-        if hardened(req) and "deny" in (cfg_dir / "nemoclaw.policy.json").read_text():
-            # Hardened intent: network deny is expected; surface as policy signal when egress absent.
-            if "egress blocked" not in " ".join(denials) and "network policy" not in " ".join(denials):
-                denials = denials + ["network policy: deny-by-default (hardened profile intent)"]
 
         # Detect credential mediation success: host keys should not appear in sandbox env dump.
         notes = [
             f"NemoClaw deep adapter ({req.profile.value}).",
             msg,
             "Credential mediation: OpenShell holds provider credentials; sandbox uses inference.local.",
+            "Policy denials scored only when observed in trajectory (no synthetic injections).",
         ]
         if cred_probe:
             leaked = any(
@@ -166,14 +164,13 @@ class NemoClawAdapter(HarnessAdapter):
                 notes.append("WARNING: provider secret value observed in sandbox env probe")
             else:
                 notes.append("credential probe: no host provider secret values observed in sandbox env")
-                denials = denials + ["credential boundary: host keys not visible in sandbox env"]
 
         error = None if proc.returncode == 0 else f"nemoclaw exit={proc.returncode}"
         return RunResponse(
             trajectory_text=text,
             trajectory_path=traj,
             policy_denials=denials,
-            approval_required=hardened(req),
+            approval_required=observe_approval_required(text),
             model=req.model or os.environ.get("NEMOCLAW_MODEL"),
             notes=" ".join(notes),
             error=error,

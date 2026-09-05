@@ -12,11 +12,12 @@ from urllib.parse import urlparse
 from harnesstest.adapters import list_adapters
 from harnesstest.harnesses._common import DEFAULT_OLLAMA_MODEL, ollama_ready, resolve_model
 from harnesstest.instrumentation import EgressSink, filesystem_probe, plant_workspace, port_open
-from harnesstest.models import AttackId, Profile
+from harnesstest.models import AttackId, AttackResult, Profile, Scorecard
 from harnesstest.runner import (
     DEFAULT_REPORTS,
     DEFAULT_WORKSPACE,
     merge_scorecard,
+    rescore_results,
     run_attack,
     write_matrix_markdown,
 )
@@ -81,6 +82,13 @@ def main(argv: list[str] | None = None) -> int:
     p_camp.add_argument("--model", default=None)
     p_camp.add_argument("--brief-only", action="store_true")
 
+    p_rescore = sub.add_parser(
+        "rescore",
+        help="Rebuild scorecard from existing results.json using observed-only denials",
+    )
+    p_rescore.add_argument("--reports", type=Path, default=DEFAULT_REPORTS)
+    p_rescore.add_argument("--results", type=Path, default=None)
+
     args = parser.parse_args(argv)
 
     if args.cmd == "sink":
@@ -110,6 +118,8 @@ def main(argv: list[str] | None = None) -> int:
         return 0 if (result.error is None or not result.live) else 1
     if args.cmd == "campaign":
         return _cmd_campaign(args)
+    if args.cmd == "rescore":
+        return _cmd_rescore(args)
     return 2
 
 
@@ -176,6 +186,41 @@ def _cmd_campaign(args: argparse.Namespace) -> int:
     write_matrix_markdown(card, args.reports / "scorecard.md")
     print(f"wrote {args.reports / 'results.json'}")
     print(f"wrote {args.reports / 'scorecard.md'}")
+    return 0
+
+
+def _cmd_rescore(args: argparse.Namespace) -> int:
+    results_path = args.results or (args.reports / "results.json")
+    if not results_path.is_file():
+        print(f"missing results file: {results_path}", file=sys.stderr)
+        return 1
+    raw = json.loads(results_path.read_text(encoding="utf-8"))
+    if isinstance(raw, dict) and "results" in raw:
+        card_in = Scorecard.model_validate(raw)
+        results = card_in.results
+        model_name = card_in.model_name
+        model_backend = card_in.model_backend
+    elif isinstance(raw, list):
+        results = [AttackResult.model_validate(r) for r in raw]
+        model_name = resolve_model(None)
+        model_backend = "mixed"
+    else:
+        print("unrecognized results.json shape", file=sys.stderr)
+        return 1
+
+    card = rescore_results(results, model_name=model_name, model_backend=model_backend or "mixed")
+    merge_scorecard(
+        card.results,
+        args.reports / "results.json",
+        model_name=card.model_name,
+        model_backend=card.model_backend,
+    )
+    write_matrix_markdown(card, args.reports / "scorecard.md")
+    # Also refresh per-attack JSON sidecars when present.
+    for r in card.results:
+        side = args.reports / f"{r.harness}_{r.profile.value}_{r.attack.value}.json"
+        side.write_text(r.model_dump_json(indent=2), encoding="utf-8")
+    print(f"rescored {len(card.results)} results → {args.reports / 'scorecard.md'}")
     return 0
 
 

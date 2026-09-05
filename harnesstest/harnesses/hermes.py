@@ -12,6 +12,7 @@ from harnesstest.harnesses._common import (
     cloud_provider_key,
     combine_output,
     hardened,
+    observe_approval_required,
     ollama_ready,
     parse_policy_denials,
     profile_dir,
@@ -145,8 +146,6 @@ class HermesAdapter(HarnessAdapter):
         traj.write_text(text, encoding="utf-8")
 
         denials = parse_policy_denials(text)
-        if hardened(req):
-            denials = denials + ["approval gate: fail-closed (hardened, no TTY)"]
 
         notes = [
             f"Hermes deep adapter ({req.profile.value}).",
@@ -154,6 +153,7 @@ class HermesAdapter(HarnessAdapter):
             f"backend={'ollama' if use_ollama else 'cloud'}.",
             "skills treated as high trust; hardened disables auto_install.",
             "MCP env_filter strips provider keys in hardened profile.",
+            "Policy denials scored only when observed in trajectory (no synthetic injections).",
             msg,
         ]
         error = None if proc.returncode == 0 else f"hermes exit={proc.returncode}"
@@ -161,7 +161,7 @@ class HermesAdapter(HarnessAdapter):
             trajectory_text=text,
             trajectory_path=traj,
             policy_denials=denials,
-            approval_required=hardened(req),
+            approval_required=observe_approval_required(text),
             model=model,
             notes=" ".join(notes),
             error=error,

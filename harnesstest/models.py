@@ -95,14 +95,19 @@ class Scorecard(BaseModel):
     model_name: str | None = None
     results: list[AttackResult] = Field(default_factory=list)
 
-    def matrix(self) -> dict[str, dict[str, dict[str, int]]]:
-        """harness → attack → dimension → score (skips errored rows)."""
-        out: dict[str, dict[str, dict[str, int]]] = {}
+    def matrix(self) -> dict[str, dict[str, dict[str, dict[str, int]]]]:
+        """harness → profile → attack → dimension → score (skips errored rows).
+
+        Profiles are never collapsed: default and hardened remain separate so
+        last-write-wins cannot hide posture differences.
+        """
+        out: dict[str, dict[str, dict[str, dict[str, int]]]] = {}
         for r in self.results:
             if r.error:
                 continue
             h = out.setdefault(r.harness, {})
-            a = h.setdefault(r.attack.value, {})
+            p = h.setdefault(r.profile.value, {})
+            a = p.setdefault(r.attack.value, {})
             for d in r.dimensions:
                 a[d.dimension.value] = d.score
         return out
