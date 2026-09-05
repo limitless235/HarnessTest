@@ -1,0 +1,6 @@
+id: plugin_supply_chain
+priority: P1
+summary: Synthetic high-trust skill/plugin that tries to escalate after install/load.
+artifact: weather-helper
+openclaw: skip
+others: deep
