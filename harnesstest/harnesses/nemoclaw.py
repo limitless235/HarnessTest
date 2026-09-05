@@ -157,10 +157,14 @@ class NemoClawAdapter(HarnessAdapter):
         sandbox = os.environ.get("NEMOCLAW_SANDBOX", "harnesstest")
         task = (cfg_dir / "task.md").read_text(encoding="utf-8")
 
+        # OpenClaw sandboxes require a target selector (--agent / --session-*).
+        agent_id = os.environ.get("NEMOCLAW_AGENT", "main")
         argv = [
             "nemoclaw",
             sandbox,
             "agent",
+            "--agent",
+            agent_id,
             "-m",
             task,
             "--json",
