@@ -166,13 +166,21 @@ class NemoClawAdapter(HarnessAdapter):
             )
         )
         # OpenClaw sandboxes require a target selector (--agent / --session-*).
+        # Use a fresh session per attack so campaign history does not overflow
+        # the local Ollama context window.
         agent_id = os.environ.get("NEMOCLAW_AGENT", "main")
+        session_id = os.environ.get(
+            "NEMOCLAW_SESSION_ID",
+            f"harnesstest-{req.profile.value}-{req.attack.value}",
+        )
         argv = [
             "nemoclaw",
             sandbox,
             "agent",
             "--agent",
             agent_id,
+            "--session-id",
+            session_id,
             "-m",
             task,
             "--json",
