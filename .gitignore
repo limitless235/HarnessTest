@@ -18,3 +18,4 @@ reports/*.json
 .vendor/
 .venv/
 fixtures/workspace/memory/
+fixtures/workspace/docs/summary.md
