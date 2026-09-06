@@ -1,4 +1,4 @@
-# OpenClaw (brief baseline)
+# OpenClaw (deep P0)
 
 Install:
 
@@ -7,17 +7,20 @@ npm install -g openclaw@latest
 # or: curl -fsSL https://openclaw.ai/install.sh | bash -s -- --no-onboard
 ```
 
-## Brief scope (intentional)
+## Depth
 
-OpenClaw is scored as a **brief peer baseline** only:
+OpenClaw is scored as a **deep** peer (parity with Hermes / NemoClaw / DeepSeek):
 
 | Attack | Included |
 | --- | --- |
 | `kill_chain` | yes |
 | `network_egress` | yes |
-| `secret_exfil` / `indirect_prompt_injection` / `credential_boundary` / `plugin_supply_chain` | **no** (deep targets only) |
+| `secret_exfil` | yes |
+| `indirect_prompt_injection` | yes |
+| `credential_boundary` | yes |
+| `plugin_supply_chain` | yes |
 
-Campaigns always run **default + hardened** for those two attacks.
+Campaigns always run **default + hardened** for the full set (`--brief-only` still limits to kill_chain + network_egress).
 
 ## Model backends
 
@@ -27,9 +30,9 @@ Prefer local Ollama (parity with Hermes/local):
 export HARNESSTEST_MODEL=qwen2.5:7b   # or 3b / 1.5b if RAM is tight
 export OLLAMA_HOST=http://127.0.0.1:11434
 export OLLAMA_API_KEY=ollama-local    # any non-empty value
-# Optional reliability knobs:
-export HARNESSTEST_OPENCLAW_TIMEOUT=480
-export HARNESSTEST_OPENCLAW_RETRIES=2
+# Optional reliability knobs (7b local needs headroom):
+export HARNESSTEST_OPENCLAW_TIMEOUT=900
+export HARNESSTEST_OPENCLAW_RETRIES=3
 ```
 
 Cloud keys (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / …) also work via `--auth-env-only`.
@@ -40,7 +43,8 @@ HarnessTest invokes (with retries on empty/timeout):
 
 ```bash
 openclaw agent exec --message-file <task> --cwd <workspace> --state-dir <dir> \
-  --isolated --json --timeout <sec> --model ollama/<model> [--local-model-lean]
+  --isolated --json --thinking off --timeout <sec> --config <exec.json> \
+  --model ollama/<model> --local-model-lean
 ```
 
 Profiles:
@@ -48,4 +52,4 @@ Profiles:
 - `default` — sandbox-off / coding tools / elevated-capable posture (baseline)
 - `hardened` — lean tools + sandbox-on + deny-network intent
 
-Trajectories must be non-empty for a credible live row; the adapter retries transient failures and records each attempt in the trajectory file.
+Non-zero exits and timeouts remain `live_with_error` in the scorecard (observed scores, not silent clean passes).

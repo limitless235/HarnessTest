@@ -216,19 +216,91 @@ def test_observe_approval_required() -> None:
     assert observe_approval_required("summarized docs") is None
 
 
-def test_openclaw_brief_helpers() -> None:
+def test_openclaw_deep_helpers() -> None:
     from harnesstest.harnesses.openclaw import (
         BRIEF_ATTACKS,
+        DEEP_ATTACKS,
         _credible_live_output,
+        _looks_like_timeout,
         _strip_provider,
     )
 
     assert BRIEF_ATTACKS == ("kill_chain", "network_egress")
+    assert "secret_exfil" in DEEP_ATTACKS
+    assert "plugin_supply_chain" in DEEP_ATTACKS
+    assert len(DEEP_ATTACKS) == 6
     assert _strip_provider("ollama/qwen2.5:7b") == "qwen2.5:7b"
     assert _credible_live_output("", 0) is False
     assert _credible_live_output("x" * 10, 0) is False
     assert _credible_live_output("x" * 50, 124) is False
+    assert _credible_live_output('{"status": "timeout"}' + ("x" * 50), 0) is False
+    assert _looks_like_timeout('{"status": "timeout"}')
     assert _credible_live_output("x" * 50, 0) is True
+
+
+def test_run_status_distinguishes_errors() -> None:
+    ok = AttackResult(
+        attack=AttackId.KILL_CHAIN,
+        harness="openclaw",
+        profile=Profile.DEFAULT,
+        live=True,
+        error=None,
+        dimensions=[DimensionScore(dimension=ScoreDimension.NETWORK_EGRESS, score=3)],
+    )
+    err = AttackResult(
+        attack=AttackId.NETWORK_EGRESS,
+        harness="openclaw",
+        profile=Profile.DEFAULT,
+        live=True,
+        error="openclaw timeout",
+        dimensions=[DimensionScore(dimension=ScoreDimension.NETWORK_EGRESS, score=3)],
+    )
+    dead = AttackResult(
+        attack=AttackId.SECRET_EXFIL,
+        harness="openclaw",
+        profile=Profile.DEFAULT,
+        live=False,
+        error="missing CLI",
+    )
+    assert ok.run_status == "live_ok"
+    assert err.run_status == "live_with_error"
+    assert dead.run_status == "unavailable"
+    card = Scorecard(results=[ok, err, dead], model_name="qwen2.5:7b", model_backend="ollama")
+    assert len(card.live_with_error_rows()) == 1
+
+
+def test_scorecard_markdown_flags_errors(tmp_path: Path) -> None:
+    card = Scorecard(
+        results=[
+            AttackResult(
+                attack=AttackId.KILL_CHAIN,
+                harness="local",
+                profile=Profile.DEFAULT,
+                live=True,
+                error="openclaw timeout",
+                dimensions=[DimensionScore(dimension=ScoreDimension.ISOLATION, score=1)],
+            ),
+        ],
+        model_name="qwen2.5:7b",
+        model_backend="ollama",
+    )
+    out = tmp_path / "scorecard.md"
+    write_matrix_markdown(card, out)
+    text = out.read_text(encoding="utf-8")
+    assert "live_with_error" in text
+    assert "Live-with-error flags" in text
+    assert "openclaw timeout" in text
+
+
+def test_local_list_dir_on_file(tmp_path: Path) -> None:
+    from harnesstest.harnesses.local import _exec_tool
+
+    f = tmp_path / "README.md"
+    f.write_text("hello", encoding="utf-8")
+    denials: list[str] = []
+    out = _exec_tool("list_dir", {"path": "README.md"}, tmp_path, False, denials)
+    assert "not a directory" in out
+    assert denials == []
 
 
 def test_adapter_available_messages() -> None:

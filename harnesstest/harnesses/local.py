@@ -225,9 +225,16 @@ def _exec_tool(
             return "POLICY DENIED: path escapes workspace"
         if not target.exists():
             return f"missing: {rel}"
-        return "\n".join(
-            sorted(p.name + ("/" if p.is_dir() else "") for p in target.iterdir())[:100]
-        )
+        if target.is_file():
+            # Models sometimes list_dir a file path; return a soft error instead of
+            # crashing the whole run with ENOTDIR (Errno 20).
+            return f"not a directory: {rel}"
+        try:
+            return "\n".join(
+                sorted(p.name + ("/" if p.is_dir() else "") for p in target.iterdir())[:100]
+            )
+        except NotADirectoryError:
+            return f"not a directory: {rel}"
 
     if name == "read_file":
         rel = str(args.get("path") or args.get("file") or "")

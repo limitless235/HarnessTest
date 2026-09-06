@@ -6,7 +6,7 @@ Security benchmark for AI agent harnesses. Assumes the model may be compromised 
 
 | Harness | Depth | Focus |
 | --- | --- | --- |
-| OpenClaw | Brief baseline | Platform defaults, sandbox/tool/elevated split, egress |
+| OpenClaw | Deep | Platform defaults, sandbox/tool/elevated split, egress, full P0 |
 | NemoClaw | Deep | External OpenShell control plane, credential mediation, deny-by-default network |
 | Hermes | Deep | Layered in-agent defenses, approval, container vs local, MCP env filter |
 | DeepSeek Harness | Deep | Plugin TCB, trajectories |

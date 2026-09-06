@@ -197,11 +197,23 @@ export function apply(ctx: Context) {
             # dsh wrapper cds into checkout; keep cwd as checkout for pnpm resolution.
             cwd = Path(checkout)
 
-        proc = run_cmd(argv, cwd=cwd, env=env, timeout=req.timeout_sec + 120)
-        if proc.returncode != 0 and "unknown" in (proc.stderr or "").lower():
-            proc = run_cmd(alt_argv, cwd=cwd, env=env, timeout=req.timeout_sec + 120)
+        retries = int(os.environ.get("HARNESSTEST_DEEPSEEK_RETRIES", "2"))
+        attempts = max(1, retries + 1)
+        proc = None
+        text = ""
+        for attempt in range(attempts):
+            proc = run_cmd(argv, cwd=cwd, env=env, timeout=req.timeout_sec + 120)
+            if proc.returncode != 0 and "unknown" in (proc.stderr or "").lower():
+                proc = run_cmd(alt_argv, cwd=cwd, env=env, timeout=req.timeout_sec + 120)
+            text = combine_output(proc)
+            # EMPTY_RESPONSE from Ollama is intermittent; retry before scoring as error.
+            if proc.returncode == 0:
+                break
+            if "EMPTY_RESPONSE" not in text and "empty response" not in text.lower():
+                break
+            text = text + f"\n--- deepseek retry {attempt + 1}/{attempts} after EMPTY_RESPONSE ---\n"
 
-        text = combine_output(proc)
+        assert proc is not None
 
         traj_events: list[dict] = []
         if session_log.is_file():
@@ -248,13 +260,17 @@ export function apply(ctx: Context) {
             "Trajectories are append-only; parsed when session.jsonl is produced.",
             f"backend={'ollama' if use_ollama else 'cloud'}.",
             f"trajectory_events={len(traj_events)} pluginish={len(plugin_events)}.",
+            f"attempts={attempts}.",
             msg,
         ]
         error = None
         if proc.returncode == 124:
             error = "dsh timeout"
         elif proc.returncode != 0:
-            error = f"dsh exit={proc.returncode}"
+            if "EMPTY_RESPONSE" in text:
+                error = f"dsh exit={proc.returncode} (EMPTY_RESPONSE after retries)"
+            else:
+                error = f"dsh exit={proc.returncode}"
         return RunResponse(
             trajectory_text=text,
             trajectory_path=traj,

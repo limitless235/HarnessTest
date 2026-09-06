@@ -108,6 +108,10 @@ def run_attack(
         events.extend(sink.events())
         events.extend(probe_secret_reads(workspace, resp.trajectory_text))
 
+        notes = resp.notes or msg
+        if resp.live and resp.error:
+            # Surface non-zero exits / timeouts so matrix scores never look silently clean.
+            notes = f"FLAG live_with_error: {resp.error}. {notes}"
         result = build_result(
             attack=attack,
             harness=harness,
@@ -118,7 +122,7 @@ def run_attack(
             approval_required=resp.approval_required,
             model=resp.model or model,
             trajectory_path=str(resp.trajectory_path) if resp.trajectory_path else None,
-            notes=resp.notes or msg,
+            notes=notes,
             live=resp.live,
             error=resp.error,
         )
@@ -155,6 +159,37 @@ def write_matrix_markdown(card: Scorecard, path: Path) -> None:
         "policy blocks credit only denials observed in live trajectories."
     )
     lines.append("")
+    lines.append(
+        "Run status: `live_ok` = clean live exit; "
+        "`live_with_error` = live trajectory scored but timeout/non-zero exit "
+        "(scores are observed-only — do not treat as a clean pass)."
+    )
+    lines.append("")
+
+    # Status table when results carry enough harness coverage to summarize.
+    harnesses = sorted({r.harness for r in card.results})
+    if harnesses:
+        lines.append("## Target status (honest)")
+        lines.append("")
+        lines.append("| Target | Depth | Status |")
+        lines.append("| --- | --- | --- |")
+        for h in harnesses:
+            rows = [r for r in card.results if r.harness == h]
+            live_rows = [r for r in rows if r.live]
+            err_rows = [r for r in live_rows if r.error]
+            depth = _infer_depth(h, rows)
+            if not live_rows:
+                status = "unavailable"
+            elif err_rows:
+                status = (
+                    f"live @ {card.model_name or 'model'} "
+                    f"({len(err_rows)}/{len(live_rows)} live_with_error)"
+                )
+            else:
+                status = f"live @ {card.model_name or 'model'}"
+            lines.append(f"| {h} | {depth} | {status} |")
+        lines.append("")
+
     if not matrix:
         lines.append("_No scored live results yet._")
         lines.append("")
@@ -165,8 +200,15 @@ def write_matrix_markdown(card: Scorecard, path: Path) -> None:
             lines.append(f"### profile: {profile}")
             lines.append("")
             for attack, dims in attacks.items():
-                lines.append(f"#### {attack}")
+                flag = _attack_error_flag(card, harness, profile, attack)
+                title = f"#### {attack}"
+                if flag:
+                    title += f"  <!-- live_with_error: {flag} -->"
+                lines.append(title)
                 lines.append("")
+                if flag:
+                    lines.append(f"_Flag: `live_with_error` — {flag}_")
+                    lines.append("")
                 lines.append("| dimension | score |")
                 lines.append("| --- | ---: |")
                 for k, v in dims.items():
@@ -174,14 +216,85 @@ def write_matrix_markdown(card: Scorecard, path: Path) -> None:
                 lines.append("")
     lines.append("## Kill-chain first stop")
     lines.append("")
-    lines.append("| harness | profile | attack | first_stop | live | error |")
+    lines.append("| harness | profile | attack | first_stop | run_status | error |")
     lines.append("| --- | --- | --- | --- | --- | --- |")
     for r in card.results:
         lines.append(
             f"| {r.harness} | {r.profile.value} | {r.attack.value} | "
-            f"{r.first_stop_stage.value} | {r.live} | {r.error or ''} |"
+            f"{r.first_stop_stage.value} | {r.run_status} | {r.error or ''} |"
         )
+    flagged = card.live_with_error_rows()
+    lines.append("")
+    lines.append("## Live-with-error flags")
+    lines.append("")
+    if not flagged:
+        lines.append("_None — all live rows exited cleanly._")
+        lines.append("")
+    else:
+        lines.append("| harness | profile | attack | error |")
+        lines.append("| --- | --- | --- | --- |")
+        for r in flagged:
+            lines.append(
+                f"| {r.harness} | {r.profile.value} | {r.attack.value} | {r.error or ''} |"
+            )
+        lines.append("")
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def _infer_depth(harness: str, rows: list[AttackResult]) -> str:
+    attacks = {r.attack.value for r in rows if r.live}
+    deep = {
+        "kill_chain",
+        "network_egress",
+        "secret_exfil",
+        "indirect_prompt_injection",
+        "credential_boundary",
+        "plugin_supply_chain",
+    }
+    if harness == "local":
+        return "demo"
+    if deep.issubset(attacks):
+        return "deep"
+    if attacks <= {"kill_chain", "network_egress"} and attacks:
+        return "brief (kill_chain + network_egress)"
+    return "partial"
+
+
+def _attack_error_flag(card: Scorecard, harness: str, profile: str, attack: str) -> str | None:
+    for r in card.results:
+        if (
+            r.harness == harness
+            and r.profile.value == profile
+            and r.attack.value == attack
+            and r.error
+        ):
+            return r.error
+    return None
+
+
+def load_sidecar_results(reports_dir: Path) -> list[AttackResult]:
+    """Load per-attack JSON sidecars from a reports directory."""
+    results: list[AttackResult] = []
+    for path in sorted(reports_dir.glob("*_*_*.json")):
+        if path.name in {"results.json"}:
+            continue
+        try:
+            results.append(AttackResult.model_validate_json(path.read_text(encoding="utf-8")))
+        except Exception:  # noqa: BLE001
+            continue
+    return results
+
+
+def merge_result_lists(*groups: list[AttackResult]) -> list[AttackResult]:
+    """Merge by (harness, profile, attack); later groups win."""
+    keyed: dict[tuple[str, str, str], AttackResult] = {}
+    for group in groups:
+        for r in group:
+            keyed[(r.harness, r.profile.value, r.attack.value)] = r
+    return sorted(
+        keyed.values(),
+        key=lambda r: (r.harness, r.profile.value, r.attack.value),
+    )
 
 
 def rescore_results(
@@ -235,6 +348,8 @@ __all__ = [
     "DEFAULT_WORKSPACE",
     "ensure_workspace",
     "list_adapters",
+    "load_sidecar_results",
+    "merge_result_lists",
     "merge_scorecard",
     "rescore_results",
     "run_attack",

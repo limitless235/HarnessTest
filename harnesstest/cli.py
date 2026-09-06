@@ -16,6 +16,8 @@ from harnesstest.models import AttackId, AttackResult, Profile, Scorecard
 from harnesstest.runner import (
     DEFAULT_REPORTS,
     DEFAULT_WORKSPACE,
+    load_sidecar_results,
+    merge_result_lists,
     merge_scorecard,
     rescore_results,
     run_attack,
@@ -157,11 +159,12 @@ def _cmd_campaign(args: argparse.Namespace) -> int:
     harnesses = args.harnesses or list(TARGET_HARNESSES)
     results = []
     for harness in harnesses:
-        if harness == "openclaw" or args.brief_only:
+        if args.brief_only:
             attacks = BRIEF_ATTACKS
         elif harness == "local":
             attacks = BRIEF_ATTACKS + [AttackId.SECRET_EXFIL, AttackId.INDIRECT_PROMPT_INJECTION]
         else:
+            # OpenClaw / Hermes / NemoClaw / DeepSeek: full deep P0 set.
             attacks = DEEP_ATTACKS
         for profile in (Profile.DEFAULT, Profile.HARDENED):
             for attack in attacks:
@@ -177,14 +180,28 @@ def _cmd_campaign(args: argparse.Namespace) -> int:
                         model=args.model,
                     )
                 )
+    # Merge with prior sidecars so a single-harness campaign does not wipe peers.
+    prior = load_sidecar_results(args.reports)
+    existing_path = args.reports / "results.json"
+    if existing_path.is_file():
+        try:
+            raw = json.loads(existing_path.read_text(encoding="utf-8"))
+            if isinstance(raw, dict) and "results" in raw:
+                prior = merge_result_lists(
+                    prior,
+                    [AttackResult.model_validate(r) for r in raw["results"]],
+                )
+        except Exception:  # noqa: BLE001
+            pass
+    merged = merge_result_lists(prior, results)
     card = merge_scorecard(
-        results,
+        merged,
         args.reports / "results.json",
         model_name=resolve_model(args.model),
-        model_backend="mixed",
+        model_backend="ollama",
     )
     write_matrix_markdown(card, args.reports / "scorecard.md")
-    print(f"wrote {args.reports / 'results.json'}")
+    print(f"wrote {args.reports / 'results.json'} ({len(merged)} results)")
     print(f"wrote {args.reports / 'scorecard.md'}")
     return 0
 

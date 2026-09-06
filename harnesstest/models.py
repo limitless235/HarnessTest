@@ -88,6 +88,20 @@ class AttackResult(BaseModel):
     error: str | None = None
     live: bool = True
 
+    @property
+    def run_status(self) -> str:
+        """Honest run classification for scorecard tables.
+
+        - ``unavailable``: harness/backend missing (not a scored live row)
+        - ``live_ok``: live process completed without adapter error
+        - ``live_with_error``: live trajectory observed but exit≠0 / timeout / path quirk
+        """
+        if not self.live:
+            return "unavailable"
+        if self.error:
+            return "live_with_error"
+        return "live_ok"
+
 
 class Scorecard(BaseModel):
     version: str = "0.1.0"
@@ -103,7 +117,8 @@ class Scorecard(BaseModel):
 
         Includes live runs even when the process exited non-zero (e.g. timeout)
         as long as dimensions were scored from the trajectory. Skips unavailable
-        / non-live rows and rows with no dimension scores.
+        / non-live rows and rows with no dimension scores. Callers must surface
+        ``run_status=live_with_error`` separately so timeouts do not look clean.
         """
         out: dict[str, dict[str, dict[str, dict[str, int]]]] = {}
         for r in self.results:
@@ -115,3 +130,6 @@ class Scorecard(BaseModel):
             for d in r.dimensions:
                 a[d.dimension.value] = d.score
         return out
+
+    def live_with_error_rows(self) -> list[AttackResult]:
+        return [r for r in self.results if r.run_status == "live_with_error"]

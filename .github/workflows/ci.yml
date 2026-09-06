@@ -1,0 +1,46 @@
+name: CI
+
+on:
+  push:
+    branches: [main, "cursor/**"]
+  pull_request:
+    branches: [main]
+
+jobs:
+  unit:
+    name: pytest + probe smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install package (dev extras only)
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Unit tests
+        run: pytest -q
+
+      - name: Probe / availability smoke (no harness CLIs required)
+        env:
+          # Keep smoke free of secrets and optional harness binaries.
+          HARNESSTEST_MODEL: qwen2.5:7b
+        run: |
+          python -m harnesstest.cli list
+          python -m harnesstest.cli probe --workspace fixtures/workspace
+          # Adapter availability must return without crashing; missing CLIs are OK.
+          python - <<'PY'
+          from harnesstest.adapters import get_adapter, list_adapters
+          for name in list_adapters():
+              ok, msg = get_adapter(name).available()
+              assert isinstance(ok, bool) and msg, name
+              print(f"{name}: ok={ok} msg={msg[:120]}")
+          print("availability smoke ok")
+          PY
