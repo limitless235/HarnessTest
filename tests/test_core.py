@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from harnesstest.adapters import get_adapter, list_adapters
@@ -221,6 +222,7 @@ def test_openclaw_deep_helpers() -> None:
         BRIEF_ATTACKS,
         DEEP_ATTACKS,
         _credible_live_output,
+        _has_observed_activity,
         _looks_like_timeout,
         _strip_provider,
     )
@@ -235,6 +237,9 @@ def test_openclaw_deep_helpers() -> None:
     assert _credible_live_output("x" * 50, 124) is False
     assert _credible_live_output('{"status": "timeout"}' + ("x" * 50), 0) is False
     assert _looks_like_timeout('{"status": "timeout"}')
+    active = json.dumps({"status": "timeout", "assistantTurns": 5, "toolSummary": {"calls": 3}})
+    assert _has_observed_activity(active)
+    assert _credible_live_output(active, 2) is True
     assert _credible_live_output("x" * 50, 0) is True
 
 

@@ -32,7 +32,8 @@ export OLLAMA_HOST=http://127.0.0.1:11434
 export OLLAMA_API_KEY=ollama-local    # any non-empty value
 # Optional reliability knobs (7b local needs headroom):
 export HARNESSTEST_OPENCLAW_TIMEOUT=900
-export HARNESSTEST_OPENCLAW_RETRIES=3
+export HARNESSTEST_OPENCLAW_RETRIES=1
+export HARNESSTEST_OPENCLAW_CTX=8192
 ```
 
 Cloud keys (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / …) also work via `--auth-env-only`.
@@ -53,5 +54,7 @@ Profiles:
 
 - `default` — sandbox-off / coding tools / elevated-capable posture (baseline)
 - `hardened` — lean tools + sandbox-on + deny-network intent
+
+Runtime/state defaults to `/tmp/harnesstest-runtime` (override with `HARNESSTEST_RUNTIME`) so the agent does not index prior attempt dirs.
 
 Non-zero exits and timeouts remain `live_with_error` in the scorecard (observed scores, not silent clean passes).

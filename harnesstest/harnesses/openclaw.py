@@ -16,10 +16,8 @@ from harnesstest.harnesses._common import (
     observe_approval_required,
     ollama_ready,
     parse_policy_denials,
-    profile_dir,
     resolve_model,
     run_cmd,
-    trajectory_path,
     unavailable,
     which,
     write_json,
@@ -38,6 +36,8 @@ DEEP_ATTACKS = (
 )
 # Back-compat alias used by tests / docs that still say "brief".
 BRIEF_ATTACKS = ("kill_chain", "network_egress")
+
+RUNTIME_ROOT = Path(os.environ.get("HARNESSTEST_RUNTIME", "/tmp/harnesstest-runtime"))
 
 
 @register
@@ -58,9 +58,9 @@ class OpenClawAdapter(HarnessAdapter):
         return False, f"openclaw present at {bin_path}; {keys_msg}; {oll_msg}"
 
     def prepare(self, req: RunRequest) -> None:
-        cfg_dir = profile_dir(req, self.name)
-        # Default: sandbox off / permissive tool surface (OpenClaw exec defaults).
-        # Hardened: sandbox + restrictive exec-policy markers for the adapter notes.
+        cfg_dir = _cfg_dir(req)
+        # Keep OpenClaw state OUT of the attack workspace so the agent does not
+        # index prior trajectories / attempt dirs into a 7b prompt.
         config = {
             "harness": "openclaw",
             "profile": req.profile.value,
@@ -86,15 +86,34 @@ class OpenClawAdapter(HarnessAdapter):
         }
         write_json(cfg_dir / "openclaw.profile.json", config)
 
-        # Isolated exec config: raise agent deadline for slow local 7b models.
+        raw_model = req.model or _default_model()
+        base_model = _strip_provider(resolve_model(raw_model))
         timeout = int(os.environ.get("HARNESSTEST_OPENCLAW_TIMEOUT", "900"))
+        ctx = int(os.environ.get("HARNESSTEST_OPENCLAW_CTX", "8192"))
         write_json(
             cfg_dir / "openclaw.exec.json",
             {
                 "agents": {
                     "defaults": {
                         "timeoutSeconds": timeout,
-                        "model": {"primary": None},
+                        "model": {"primary": f"ollama/{base_model}"},
+                    }
+                },
+                "models": {
+                    "providers": {
+                        "ollama": {
+                            "baseUrl": OLLAMA_HOST.rstrip("/") + "/v1",
+                            "apiKey": os.environ.get("OLLAMA_API_KEY") or "ollama-local",
+                            "api": "openai-completions",
+                            "models": [
+                                {
+                                    "id": base_model,
+                                    "name": base_model,
+                                    "contextWindow": ctx,
+                                    "maxTokens": 1024,
+                                }
+                            ],
+                        }
                     }
                 },
             },
@@ -105,6 +124,7 @@ class OpenClawAdapter(HarnessAdapter):
             + "\n\nWorkspace root: "
             + str(req.workspace)
             + "\nStart by reading README.md with your tools, then continue the task.\n"
+            + "Prefer short tool use; finish with a brief written summary.\n"
         )
         if req.attack == AttackId.PLUGIN_SUPPLY_CHAIN:
             skill = cfg_dir / "skills" / "weather-helper"
@@ -128,6 +148,7 @@ class OpenClawAdapter(HarnessAdapter):
                 "exec_policy": config["exec_policy"],
                 "deep_scope": list(DEEP_ATTACKS),
                 "attack": req.attack.value,
+                "runtime_outside_workspace": True,
             },
         )
 
@@ -136,8 +157,8 @@ class OpenClawAdapter(HarnessAdapter):
         if not ok:
             return unavailable(msg)
 
-        cfg_dir = profile_dir(req, self.name)
-        traj = trajectory_path(req, self.name)
+        cfg_dir = _cfg_dir(req)
+        traj = cfg_dir / f"{req.attack.value}.trajectory.txt"
         state_dir = cfg_dir / "state"
         state_dir.mkdir(parents=True, exist_ok=True)
         task_file = cfg_dir / "task.md"
@@ -148,7 +169,6 @@ class OpenClawAdapter(HarnessAdapter):
         use_ollama = not cloud_provider_key()[0] and ollama_ready(base_model)[0]
         model = f"ollama/{base_model}" if use_ollama else (raw_model or base_model)
 
-        # Larger local models need generous timeouts; allow env override.
         default_timeout = 900 if use_ollama else req.timeout_sec
         timeout = int(
             os.environ.get(
@@ -156,16 +176,27 @@ class OpenClawAdapter(HarnessAdapter):
                 str(max(req.timeout_sec, default_timeout)),
             )
         )
-        retries = int(os.environ.get("HARNESSTEST_OPENCLAW_RETRIES", "3"))
+        # One retry is enough once we accept activity-bearing timeouts as terminal.
+        retries = int(os.environ.get("HARNESSTEST_OPENCLAW_RETRIES", "1"))
         attempts = max(1, retries + 1)
+        ctx = int(os.environ.get("HARNESSTEST_OPENCLAW_CTX", "8192"))
 
-        # Keep exec config deadline aligned with CLI --timeout.
         try:
             cfg = json.loads(exec_cfg.read_text(encoding="utf-8"))
             cfg.setdefault("agents", {}).setdefault("defaults", {})["timeoutSeconds"] = timeout
+            providers = cfg.setdefault("models", {}).setdefault("providers", {})
+            oll = providers.setdefault("ollama", {})
+            oll["baseUrl"] = OLLAMA_HOST.rstrip("/") + "/v1"
+            oll["apiKey"] = os.environ.get("OLLAMA_API_KEY") or "ollama-local"
+            models = oll.setdefault("models", [{"id": base_model}])
+            if models and isinstance(models[0], dict):
+                models[0]["contextWindow"] = ctx
             write_json(exec_cfg, cfg)
         except Exception:  # noqa: BLE001
             pass
+
+        # Runtime/state lives under HARNESSTEST_RUNTIME (default /tmp), not under
+        # the attack workspace, so OpenClaw does not index prior attempt dirs.
 
         attempt_logs: list[str] = []
         raw_events: list[dict] = []
@@ -194,25 +225,21 @@ class OpenClawAdapter(HarnessAdapter):
                 str(timeout),
                 "--thinking",
                 "off",
+                "--config",
+                str(exec_cfg),
             ]
-            # Note: --config cannot be combined with --isolated; rely on --timeout.
-            if use_ollama:
-                argv.append("--isolated")
+            if use_ollama and hardened(req):
                 argv.append("--local-model-lean")
-            else:
+            elif not use_ollama:
                 argv.append("--auth-env-only")
             if model:
                 argv.extend(["--model", model])
-            elif hardened(req):
-                argv.append("--local-model-lean")
 
             env = {
                 "OLLAMA_HOST": OLLAMA_HOST,
                 "OLLAMA_API_KEY": os.environ.get("OLLAMA_API_KEY") or "ollama-local",
+                "OLLAMA_NUM_CTX": str(ctx),
             }
-            if use_ollama:
-                # OpenClaw Ollama path expects a non-empty key registration.
-                env["OLLAMA_API_KEY"] = env["OLLAMA_API_KEY"] or "ollama-local"
 
             proc = run_cmd(argv, cwd=req.workspace, env=env, timeout=timeout + 120)
             text = combine_output(proc)
@@ -228,6 +255,7 @@ class OpenClawAdapter(HarnessAdapter):
                     "bytes": len(text),
                     "model": model,
                     "timeout_sec": timeout,
+                    "context_window": ctx,
                 }
             )
             chosen_text = text
@@ -254,7 +282,7 @@ class OpenClawAdapter(HarnessAdapter):
         notes = (
             f"OpenClaw deep P0 ({req.profile.value}/{req.attack.value}); "
             f"scope={list(DEEP_ATTACKS)}; attempts={len(raw_events)}; "
-            f"posture={posture}. {msg}"
+            f"ctx={ctx}; posture={posture}. {msg}"
         )
         return RunResponse(
             trajectory_text=chosen_final or chosen_text or combined,
@@ -267,6 +295,12 @@ class OpenClawAdapter(HarnessAdapter):
             live=True,
             raw_events=raw_events,
         )
+
+
+def _cfg_dir(req: RunRequest) -> Path:
+    d = RUNTIME_ROOT / "openclaw" / req.profile.value / req.attack.value
+    d.mkdir(parents=True, exist_ok=True)
+    return d
 
 
 def _strip_provider(model: str | None) -> str:
@@ -286,13 +320,45 @@ def _looks_like_timeout(text: str) -> bool:
     )
 
 
+def _has_observed_activity(text: str) -> bool:
+    """True when a timeout/error run still produced useful agent activity."""
+    body = text or ""
+    lower = body.lower()
+    if '"assistantturns":' in lower.replace(" ", ""):
+        # Parse loosely for turns/tool calls.
+        try:
+            for chunk in reversed(body.splitlines()):
+                chunk = chunk.strip()
+                if chunk.startswith("{") and chunk.endswith("}"):
+                    data = json.loads(chunk)
+                    if isinstance(data, dict):
+                        turns = int(data.get("assistantTurns") or 0)
+                        tools = data.get("toolSummary") or {}
+                        calls = int(tools.get("calls") or 0) if isinstance(tools, dict) else 0
+                        if turns > 0 or calls > 0:
+                            return True
+        except (json.JSONDecodeError, TypeError, ValueError):
+            pass
+    markers = (
+        "tool call",
+        "web_fetch",
+        "read",
+        "write",
+        "operator override",
+        "readme.md",
+        "payloads",
+    )
+    return any(m in lower for m in markers) and len(body) > 200
+
+
 def _credible_live_output(text: str, returncode: int) -> bool:
-    """Accept non-empty live output; retry on timeout / empty / tiny stubs."""
+    """Accept non-empty live output; retry empty/tiny stubs; stop on activity."""
     body = (text or "").strip()
     if not body:
         return False
     if returncode in (124, 2) or _looks_like_timeout(body):
-        return False
+        # Don't burn more wall-clock if we already have observed tool activity.
+        return _has_observed_activity(body)
     if len(body) < 40:
         return False
     return True
@@ -307,7 +373,6 @@ def _extract_final(text: str) -> str:
     if not text:
         return text
     try:
-        # Prefer last JSON object on stdout.
         for chunk in reversed(text.splitlines()):
             chunk = chunk.strip()
             if chunk.startswith("{") and chunk.endswith("}"):
