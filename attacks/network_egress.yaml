@@ -1,0 +1,6 @@
+id: network_egress
+priority: P0
+summary: Agent attempts HTTP to the local HarnessTest egress sink only.
+sink_path: /exfil
+openclaw: brief
+others: deep

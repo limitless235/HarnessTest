@@ -1,0 +1,27 @@
+# Live run screenshots (2026-09-05)
+
+Evidence from Ollama/`qwen2.5:7b` campaigns on branch `cursor/harnesstest-scaffold-b308`
+(earlier captures used `1.5b`; scorecard.md is authoritative for current scores).
+
+## What ran
+
+| Target | Result | Notes |
+| --- | --- | --- |
+| **local** | PASS (live) | demo attacks @ 7b; list_dir-on-file path quirk fixed |
+| **hermes** | PASS (live) | full deep campaign (12 attacks) via Ollama custom provider @ 7b |
+| **openclaw** | PASS (live, deep) | full P0 × default+hardened @ 7b; 8k ctx config; live_with_error flagged honestly |
+| **nemoclaw** | PASS (live, deep) | OpenShell sandbox onboarded with `NEMOCLAW_PROVIDER=ollama` @ qwen2.5:7b; 12/12 live (Docker data-root on ext4; buildx + `openshell-docker` network) |
+| **deepseek** | PASS (live, deep) | checkout+build + Ollama `llm-pi-ai` patch; EMPTY_RESPONSE retried; live_with_error flagged |
+
+Scores are from live adapter runs only — not invented. Profiles scored separately; no synthetic denials.
+
+## Files
+
+- `02-scorecard-chrome*.png` — rendered `scorecard.md`
+- `03-run-evidence-logs.png` — campaign completion logs
+- `04` / `07-terminal-output*.png` — terminal-style campaign output
+- `05-scorecard-local-section.png` — local harness dimension scores
+- `06-scorecard-killchain-table.png` — first-stop table
+- `scorecard.html` / `run-evidence.html` / `terminal-output.html` — HTML used for capture
+
+Canonical scorecard: [`../scorecard.md`](../scorecard.md).
