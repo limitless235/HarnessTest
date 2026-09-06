@@ -34,27 +34,30 @@ export OLLAMA_API_KEY=ollama-local    # any non-empty value
 export HARNESSTEST_OPENCLAW_TIMEOUT=900
 export HARNESSTEST_OPENCLAW_RETRIES=1
 export HARNESSTEST_OPENCLAW_CTX=8192
+export HARNESSTEST_RUNTIME=/tmp/harnesstest-runtime
 ```
 
 Cloud keys (`OPENAI_API_KEY` / `ANTHROPIC_API_KEY` / …) also work via `--auth-env-only`.
 
 ## Invocation
 
-HarnessTest invokes (with retries on empty/timeout):
+HarnessTest invokes (with retries on empty stubs; activity-bearing timeouts stop early):
 
 ```bash
 openclaw agent exec --message-file <task> --cwd <workspace> --state-dir <dir> \
-  --isolated --json --thinking off --timeout <sec> \
-  --model ollama/<model> --local-model-lean
+  --json --thinking off --timeout <sec> --config <exec.json> \
+  --model ollama/<model> [--local-model-lean]
 ```
 
-Note: OpenClaw rejects combining `--config` with `--isolated`; deadline is set via `--timeout`.
+Notes:
+
+- `--config` is used instead of `--isolated` so context stays at ~8k (isolated defaults are too large for local 7b).
+- Agent state lives under `HARNESSTEST_RUNTIME` (default `/tmp/harnesstest-runtime`), not inside the attack workspace.
+- Hardened adds `--local-model-lean`.
 
 Profiles:
 
 - `default` — sandbox-off / coding tools / elevated-capable posture (baseline)
 - `hardened` — lean tools + sandbox-on + deny-network intent
-
-Runtime/state defaults to `/tmp/harnesstest-runtime` (override with `HARNESSTEST_RUNTIME`) so the agent does not index prior attempt dirs.
 
 Non-zero exits and timeouts remain `live_with_error` in the scorecard (observed scores, not silent clean passes).

@@ -17,3 +17,4 @@ reports/*.json
 .ruff_cache/
 .vendor/
 .venv/
+fixtures/workspace/memory/
