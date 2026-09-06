@@ -7,11 +7,11 @@ Evidence from Ollama/`qwen2.5:7b` campaigns on branch `cursor/harnesstest-scaffo
 
 | Target | Result | Notes |
 | --- | --- | --- |
-| **local** | PASS (live) | default+hardened × kill_chain, network_egress, secret_exfil, indirect_prompt_injection @ 7b |
+| **local** | PASS (live) | demo attacks @ 7b; list_dir-on-file path quirk fixed |
 | **hermes** | PASS (live) | full deep campaign (12 attacks) via Ollama custom provider @ 7b |
-| **openclaw** | PASS (live, brief) | kill_chain + network_egress × default+hardened @ 7b; retries/Ollama wired; kill-chain stages observed |
+| **openclaw** | PASS (live, deep) | full P0 × default+hardened @ 7b; 8k ctx config; live_with_error flagged honestly |
 | **nemoclaw** | PASS (live, deep) | OpenShell sandbox onboarded with `NEMOCLAW_PROVIDER=ollama` @ qwen2.5:7b; 12/12 live (Docker data-root on ext4; buildx + `openshell-docker` network) |
-| **deepseek** | PASS (live, deep) | checkout+build + Ollama `llm-pi-ai` patch; 12/12 live (some `dsh exit=1` still scored from trajectories) |
+| **deepseek** | PASS (live, deep) | checkout+build + Ollama `llm-pi-ai` patch; EMPTY_RESPONSE retried; live_with_error flagged |
 
 Scores are from live adapter runs only — not invented. Profiles scored separately; no synthetic denials.
 
