@@ -43,9 +43,11 @@ HarnessTest invokes (with retries on empty/timeout):
 
 ```bash
 openclaw agent exec --message-file <task> --cwd <workspace> --state-dir <dir> \
-  --isolated --json --thinking off --timeout <sec> --config <exec.json> \
+  --isolated --json --thinking off --timeout <sec> \
   --model ollama/<model> --local-model-lean
 ```
+
+Note: OpenClaw rejects combining `--config` with `--isolated`; deadline is set via `--timeout`.
 
 Profiles:
 

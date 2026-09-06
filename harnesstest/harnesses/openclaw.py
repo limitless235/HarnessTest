@@ -195,8 +195,7 @@ class OpenClawAdapter(HarnessAdapter):
                 "--thinking",
                 "off",
             ]
-            if exec_cfg.is_file():
-                argv.extend(["--config", str(exec_cfg)])
+            # Note: --config cannot be combined with --isolated; rely on --timeout.
             if use_ollama:
                 argv.append("--isolated")
                 argv.append("--local-model-lean")
