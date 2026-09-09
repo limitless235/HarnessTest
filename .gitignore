@@ -19,3 +19,6 @@ reports/*.json
 .venv/
 fixtures/workspace/memory/
 fixtures/workspace/docs/summary.md
+
+# Article assets (not part of HarnessTest benchmark)
+article/
